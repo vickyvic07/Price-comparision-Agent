@@ -17,16 +17,5 @@ export default defineConfig({
   build: {
     // Raise the chunk-size warning threshold (Recharts is intentionally large)
     chunkSizeWarningLimit: 1000,
-    rollupOptions: {
-      output: {
-        // Split large vendor libs into separate chunks for better caching
-        manualChunks: {
-          react: ['react', 'react-dom'],
-          router: ['react-router-dom'],
-          charts: ['recharts'],
-          query: ['@tanstack/react-query'],
-        },
-      },
-    },
   },
 });
