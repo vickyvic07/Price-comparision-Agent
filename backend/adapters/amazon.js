@@ -66,7 +66,12 @@ class AmazonAdapter extends BaseAdapter {
       browser = await chromium.launch({ headless: true, channel: 'chrome' });
     } catch (err) {
       logger.warn(`Amazon: Failed to launch with chrome channel, falling back to bundled chromium: ${err.message}`);
-      browser = await chromium.launch({ headless: true });
+      try {
+        browser = await chromium.launch({ headless: true });
+      } catch (innerErr) {
+        logger.warn(`Amazon: Playwright unavailable — skipping scrape: ${innerErr.message}`);
+        return [];
+      }
     }
     const context = await browser.newContext({
       userAgent:

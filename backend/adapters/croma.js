@@ -16,7 +16,12 @@ class CromaAdapter extends BaseAdapter {
       browser = await chromium.launch({ headless: true, channel: 'chrome' });
     } catch (err) {
       logger.warn(`Croma: Failed to launch with chrome channel, falling back to bundled chromium: ${err.message}`);
-      browser = await chromium.launch({ headless: true });
+      try {
+        browser = await chromium.launch({ headless: true });
+      } catch (innerErr) {
+        logger.warn(`Croma: Playwright unavailable — skipping scrape: ${innerErr.message}`);
+        return [];
+      }
     }
 
     const context = await browser.newContext({

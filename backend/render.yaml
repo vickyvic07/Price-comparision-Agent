@@ -5,7 +5,7 @@ services:
     region: oregon           # change to: frankfurt, singapore, ohio, virginia as needed
     plan: free               # upgrade to starter/standard for production
     rootDir: backend
-    buildCommand: npm ci && npx playwright install --with-deps chromium
+    buildCommand: npm ci && npx playwright install chromium
     startCommand: npm start
     healthCheckPath: /health
     autoDeploy: true
