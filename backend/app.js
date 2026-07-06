@@ -48,6 +48,24 @@ if (process.env.NODE_ENV !== 'test') {
 // ─── Global rate limiter ─────────────────────────────────────────────────────
 app.use('/api', apiLimiter);
 
+// ─── Root ─────────────────────────────────────────────────────────────────────
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    name: 'Price Comparison Agent API',
+    version: '1.0.0',
+    health: '/health',
+    docs: {
+      auth:     '/api/auth',
+      search:   '/api/search',
+      products: '/api/products',
+      wishlist: '/api/wishlist',
+      alerts:   '/api/alerts',
+      chat:     '/api/chat',
+    },
+  });
+});
+
 // ─── Health check ────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });

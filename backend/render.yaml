@@ -24,7 +24,7 @@ services:
       - key: JWT_EXPIRES_IN
         value: 7d
       - key: ALLOWED_ORIGINS
-        sync: false          # e.g. https://your-app.vercel.app
+        sync: false          # e.g. https://your-vercel-app.vercel.app (frontend URL)
       - key: GROQ_API_KEY
         sync: false
       - key: SERPAPI_KEY
