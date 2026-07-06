@@ -3,18 +3,30 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+
   server: {
-    // In dev mode proxy /api → backend at localhost:5000
+    // Dev only: proxy /api → local backend so you don't need VITE_API_BASE_URL locally
     proxy: {
       '/api': {
         target: 'http://localhost:5000',
         changeOrigin: true,
-        // Do NOT rewrite — keep /api prefix so Express routes match
       },
     },
   },
+
   build: {
-    // Silence the chunk size warning — Recharts is intentionally large
+    // Raise the chunk-size warning threshold (Recharts is intentionally large)
     chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        // Split large vendor libs into separate chunks for better caching
+        manualChunks: {
+          react: ['react', 'react-dom'],
+          router: ['react-router-dom'],
+          charts: ['recharts'],
+          query: ['@tanstack/react-query'],
+        },
+      },
+    },
   },
 });

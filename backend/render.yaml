@@ -1,0 +1,51 @@
+services:
+  - type: web
+    name: price-comparison-agent-api
+    runtime: node
+    region: oregon           # change to: frankfurt, singapore, ohio, virginia as needed
+    plan: free               # upgrade to starter/standard for production
+    rootDir: backend
+    buildCommand: npm ci && npx playwright install --with-deps chromium
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+
+      # ── Set the values below in the Render dashboard (Environment tab) ──────
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: ALLOWED_ORIGINS
+        sync: false          # e.g. https://your-app.vercel.app
+      - key: GROQ_API_KEY
+        sync: false
+      - key: SERPAPI_KEY
+        sync: false
+
+      # ── Scraper tuning ──────────────────────────────────────────────────────
+      - key: SCRAPER_TIMEOUT
+        value: "15000"
+      - key: SCRAPER_RETRY_ATTEMPTS
+        value: "3"
+      - key: SCRAPER_RETRY_DELAY
+        value: "2000"
+
+      # ── SMTP (price-alert emails) ───────────────────────────────────────────
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_SECURE
+        value: "false"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
