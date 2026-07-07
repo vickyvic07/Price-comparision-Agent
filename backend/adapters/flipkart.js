@@ -25,30 +25,68 @@ class FlipkartAdapter extends BaseAdapter {
     return this._searchViaPlaywright(query);
   }
 
+  _isValueSerp(key) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key?.trim());
+  }
+
   async _searchViaSerpApi(query) {
+    const key = process.env.SERPAPI_KEY;
+
+    if (this._isValueSerp(key)) {
+      // ValueSerp (UUID key) — search broadly and filter by flipkart URLs
+      const { data } = await axios.get('https://api.valueserp.com/search', {
+        params: {
+          api_key:       key,
+          q:             `${query} flipkart`,
+          location:      'India',
+          google_domain: 'google.co.in',
+          gl:            'in',
+          hl:            'en',
+          search_type:   'shopping',
+          num:           10,
+        },
+        timeout: parseInt(process.env.SCRAPER_TIMEOUT, 10) || 15000,
+      });
+      const items = (data.shopping_results || []).filter(
+        (i) => (i.link || '').includes('flipkart')
+      );
+      return items.map((item) => ({
+        name:             item.title || item.name || '',
+        price:            parseFloat(String(item.extracted_price ?? item.price ?? '0').replace(/[^0-9.]/g, '')) || 0,
+        currency:         'INR',
+        rating:           item.rating,
+        reviewCount:      item.reviews,
+        url:              item.link || item.product_link || '',
+        image:            item.thumbnail,
+        deliveryEstimate: item.delivery,
+        inStock:          true,
+      }));
+    }
+
+    // SerpApi.com (64-char hex key)
     const { data } = await axios.get('https://serpapi.com/search', {
       params: {
-        engine: 'google_shopping',
-        q: `${query} site:flipkart.com`,
-        gl: 'in',
-        hl: 'en',
-        api_key: process.env.SERPAPI_KEY,
-        num: 10,
+        engine:  'google_shopping',
+        q:       `${query} site:flipkart.com`,
+        gl:      'in',
+        hl:      'en',
+        api_key: key,
+        num:     10,
       },
       timeout: parseInt(process.env.SCRAPER_TIMEOUT, 10) || 15000,
     });
 
     const items = data.shopping_results || [];
     return items.map((item) => ({
-      name: item.title,
-      price: parseFloat(String(item.price || '0').replace(/[^0-9.]/g, '')),
-      currency: 'INR',
-      rating: item.rating,
-      reviewCount: item.reviews,
-      url: item.link || item.product_link || '',
-      image: item.thumbnail,
+      name:             item.title,
+      price:            parseFloat(String(item.price || '0').replace(/[^0-9.]/g, '')),
+      currency:         'INR',
+      rating:           item.rating,
+      reviewCount:      item.reviews,
+      url:              item.link || item.product_link || '',
+      image:            item.thumbnail,
       deliveryEstimate: item.delivery,
-      inStock: true,
+      inStock:          true,
     }));
   }
 
