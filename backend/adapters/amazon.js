@@ -29,59 +29,42 @@ class AmazonAdapter extends BaseAdapter {
 
   // ── SerpApi path ──────────────────────────────────────────────────────────
 
-  _isValueSerp(key) {
+  _isUUID(key) {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key?.trim());
   }
 
   async _searchViaSerpApi(query) {
     const key = process.env.SERPAPI_KEY;
 
-    if (this._isValueSerp(key)) {
-      // ValueSerp (UUID key) — search broadly and filter by amazon.in URLs
-      const { data } = await axios.get('https://api.valueserp.com/search', {
-        params: {
-          api_key:       key,
-          q:             `${query} amazon.in`,
-          location:      'India',
-          google_domain: 'google.co.in',
-          gl:            'in',
-          hl:            'en',
-          search_type:   'shopping',
-          num:           10,
-        },
+    if (this._isUUID(key)) {
+      // ZenSerp (UUID key) — apikey sent as header
+      const { data } = await axios.get('https://app.zenserp.com/api/v2/search', {
+        headers: { apikey: key },
+        params: { q: `${query} amazon.in`, search_type: 'shopping', gl: 'in', hl: 'en', num: 10 },
         timeout: parseInt(process.env.SCRAPER_TIMEOUT, 10) || 15000,
       });
-      const items = (data.shopping_results || []).filter(
-        (i) => (i.link || '').includes('amazon')
-      );
-      return items.map((item) => ({
-        name:             item.title || item.name || '',
-        price:            this._parsePrice(item.extracted_price ?? item.price),
-        currency:         'INR',
-        rating:           item.rating,
-        reviewCount:      item.reviews,
-        url:              item.link || item.product_link || '',
-        image:            item.thumbnail,
-        deliveryEstimate: item.delivery,
-        inStock:          true,
-      }));
+      return (data.shopping_results || data.organic || [])
+        .filter((i) => (i.url || i.link || '').includes('amazon'))
+        .map((item) => ({
+          name:             item.title || '',
+          price:            item.price_parsed?.value ?? this._parsePrice(item.price),
+          currency:         'INR',
+          rating:           item.stars ?? item.rating,
+          reviewCount:      item.reviews,
+          url:              item.url || item.link || '',
+          image:            item.thumbnail,
+          deliveryEstimate: item.delivery,
+          inStock:          true,
+        }))
+        .filter((r) => r.name && r.price > 0);
     }
 
     // SerpApi.com (64-char hex key)
     const { data } = await axios.get('https://serpapi.com/search', {
-      params: {
-        engine:  'google_shopping',
-        q:       `${query} site:amazon.in`,
-        gl:      'in',
-        hl:      'en',
-        api_key: key,
-        num:     10,
-      },
+      params: { engine: 'google_shopping', q: `${query} site:amazon.in`, gl: 'in', hl: 'en', api_key: key, num: 10 },
       timeout: parseInt(process.env.SCRAPER_TIMEOUT, 10) || 15000,
     });
-
-    const items = data.shopping_results || [];
-    return items.map((item) => ({
+    return (data.shopping_results || []).map((item) => ({
       name:             item.title,
       price:            this._parsePrice(item.price),
       currency:         'INR',

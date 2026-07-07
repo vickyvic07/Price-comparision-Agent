@@ -25,59 +25,42 @@ class FlipkartAdapter extends BaseAdapter {
     return this._searchViaPlaywright(query);
   }
 
-  _isValueSerp(key) {
+  _isUUID(key) {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key?.trim());
   }
 
   async _searchViaSerpApi(query) {
     const key = process.env.SERPAPI_KEY;
 
-    if (this._isValueSerp(key)) {
-      // ValueSerp (UUID key) — search broadly and filter by flipkart URLs
-      const { data } = await axios.get('https://api.valueserp.com/search', {
-        params: {
-          api_key:       key,
-          q:             `${query} flipkart`,
-          location:      'India',
-          google_domain: 'google.co.in',
-          gl:            'in',
-          hl:            'en',
-          search_type:   'shopping',
-          num:           10,
-        },
+    if (this._isUUID(key)) {
+      // ZenSerp (UUID key) — apikey sent as header
+      const { data } = await axios.get('https://app.zenserp.com/api/v2/search', {
+        headers: { apikey: key },
+        params: { q: `${query} flipkart`, search_type: 'shopping', gl: 'in', hl: 'en', num: 10 },
         timeout: parseInt(process.env.SCRAPER_TIMEOUT, 10) || 15000,
       });
-      const items = (data.shopping_results || []).filter(
-        (i) => (i.link || '').includes('flipkart')
-      );
-      return items.map((item) => ({
-        name:             item.title || item.name || '',
-        price:            parseFloat(String(item.extracted_price ?? item.price ?? '0').replace(/[^0-9.]/g, '')) || 0,
-        currency:         'INR',
-        rating:           item.rating,
-        reviewCount:      item.reviews,
-        url:              item.link || item.product_link || '',
-        image:            item.thumbnail,
-        deliveryEstimate: item.delivery,
-        inStock:          true,
-      }));
+      return (data.shopping_results || data.organic || [])
+        .filter((i) => (i.url || i.link || '').includes('flipkart'))
+        .map((item) => ({
+          name:             item.title || '',
+          price:            item.price_parsed?.value ?? parseFloat(String(item.price || '0').replace(/[^0-9.]/g, '')) || 0,
+          currency:         'INR',
+          rating:           item.stars ?? item.rating,
+          reviewCount:      item.reviews,
+          url:              item.url || item.link || '',
+          image:            item.thumbnail,
+          deliveryEstimate: item.delivery,
+          inStock:          true,
+        }))
+        .filter((r) => r.name && r.price > 0);
     }
 
     // SerpApi.com (64-char hex key)
     const { data } = await axios.get('https://serpapi.com/search', {
-      params: {
-        engine:  'google_shopping',
-        q:       `${query} site:flipkart.com`,
-        gl:      'in',
-        hl:      'en',
-        api_key: key,
-        num:     10,
-      },
+      params: { engine: 'google_shopping', q: `${query} site:flipkart.com`, gl: 'in', hl: 'en', api_key: key, num: 10 },
       timeout: parseInt(process.env.SCRAPER_TIMEOUT, 10) || 15000,
     });
-
-    const items = data.shopping_results || [];
-    return items.map((item) => ({
+    return (data.shopping_results || []).map((item) => ({
       name:             item.title,
       price:            parseFloat(String(item.price || '0').replace(/[^0-9.]/g, '')),
       currency:         'INR',
