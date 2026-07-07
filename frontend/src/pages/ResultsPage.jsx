@@ -71,20 +71,46 @@ function FiltersPanel({ filters, onChange }) {
 /* ── Product result card ─────────────────────────────────────────────── */
 function ProductCard({ product, listings, query }) {
   const [expanded, setExpanded] = useState(false);
+  const [imgErr, setImgErr] = useState(false);
   const bestListing = listings[0]; // already sorted cheapest-first
+
+  // Collect all available images across product and listings
+  const imageUrl =
+    product.images?.[0] ||
+    listings.find((l) => l.image)?.image ||
+    null;
+
+  // Category-based emoji placeholder
+  const cat = (product.category || '').toLowerCase();
+  const emoji =
+    cat.includes('phone') || cat.includes('mobile') ? '📱' :
+    cat.includes('laptop') || cat.includes('computer') ? '💻' :
+    cat.includes('tv') || cat.includes('television') ? '📺' :
+    cat.includes('audio') || cat.includes('headphone') || cat.includes('speaker') ? '🎧' :
+    cat.includes('camera') ? '📷' :
+    cat.includes('tablet') ? '📲' :
+    cat.includes('watch') ? '⌚' :
+    cat.includes('fridge') || cat.includes('refrigerator') ? '🧊' :
+    cat.includes('washing') ? '🫧' :
+    cat.includes('air') ? '❄️' : '🛒';
 
   return (
     <div className="card overflow-hidden">
       {/* Header */}
       <div className="p-4 flex gap-4">
-        {product.images?.[0] && (
-          <img
-            src={product.images[0]}
-            alt={product.name}
-            className="w-20 h-20 object-contain rounded-lg border border-gray-100 shrink-0 bg-white"
-            onError={(e) => { e.target.style.display = 'none'; }}
-          />
-        )}
+        {/* Image or placeholder */}
+        <div className="w-20 h-20 rounded-lg border border-gray-100 shrink-0 bg-gray-50 flex items-center justify-center overflow-hidden">
+          {imageUrl && !imgErr ? (
+            <img
+              src={imageUrl}
+              alt={product.name}
+              className="w-full h-full object-contain p-1"
+              onError={() => setImgErr(true)}
+            />
+          ) : (
+            <span className="text-3xl select-none">{emoji}</span>
+          )}
+        </div>
         <div className="flex-1 min-w-0">
           <Link
             to={`/product/${product._id}?q=${encodeURIComponent(query)}`}

@@ -133,13 +133,21 @@ exports.search = asyncHandler(async (req, res, next) => {
   for (const [, group] of productMap) {
     // Find or create Product doc
     let product = await Product.findOne({ normalizedName: group.normalizedName });
+    const freshImages = group.listings.flatMap((l) => l.images || []).filter(Boolean).slice(0, 5);
     if (!product) {
       product = await Product.create({
         name: group.name,
         normalizedName: group.normalizedName,
         category: category || group.listings[0]?.category,
-        images: group.listings.flatMap((l) => l.images || []).slice(0, 5),
+        images: freshImages,
       });
+    } else if (freshImages.length > 0 && product.images.length === 0) {
+      // Update images if product exists but has none
+      product = await Product.findByIdAndUpdate(
+        product._id,
+        { $set: { images: freshImages } },
+        { new: true }
+      );
     }
 
     const enrichedListings = [];

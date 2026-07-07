@@ -49,14 +49,18 @@ export default function WishlistCard({ item, userEmail }) {
     <div className={`card p-4 space-y-4 transition-all ${item.isBelowThreshold ? 'border-green-300 bg-green-50/40' : ''}`}>
       {/* Header row */}
       <div className="flex items-start gap-3">
-        {product.images?.[0] && (
-          <img
-            src={product.images[0]}
-            alt={product.name}
-            className="w-14 h-14 object-contain rounded-lg border border-gray-100 bg-white shrink-0"
-            onError={(e) => { e.target.style.display = 'none'; }}
-          />
-        )}
+        <div className="w-14 h-14 rounded-lg border border-gray-100 bg-gray-50 shrink-0 flex items-center justify-center overflow-hidden">
+          {product.images?.[0] ? (
+            <img
+              src={product.images[0]}
+              alt={product.name}
+              className="w-full h-full object-contain p-1"
+              onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling && (e.target.nextSibling.style.display = 'block'); }}
+            />
+          ) : (
+            <span className="text-2xl select-none">🛒</span>
+          )}
+        </div>
         <div className="flex-1 min-w-0">
           <Link
             to={`/product/${product._id}`}
