@@ -43,7 +43,7 @@ class FlipkartAdapter extends BaseAdapter {
         .filter((i) => (i.url || i.link || '').includes('flipkart'))
         .map((item) => ({
           name:             item.title || '',
-          price:            item.price_parsed?.value ?? parseFloat(String(item.price || '0').replace(/[^0-9.]/g, '')) || 0,
+          price:            item.price_parsed?.value ?? (parseFloat(String(item.price || '0').replace(/[^0-9.]/g, '')) || 0),
           currency:         'INR',
           rating:           item.stars ?? item.rating,
           reviewCount:      item.reviews,
