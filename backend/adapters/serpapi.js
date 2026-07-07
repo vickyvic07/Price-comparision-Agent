@@ -37,51 +37,51 @@ class SerpApiAdapter extends BaseAdapter {
     const { data } = await axios.get('https://app.zenserp.com/api/v2/search', {
       headers: { apikey: key },
       params: {
-        q:           `${query}`,
-        search_type: 'shopping',
-        gl:          'in',
-        hl:          'en',
-        num:         20,
+        q:    query,
+        gl:   'in',
+        hl:   'en',
+        num:  20,
       },
       timeout: parseInt(process.env.SCRAPER_TIMEOUT, 10) || 30000,
     });
 
-    // ZenSerp shopping returns results under "shopping_results" or "organic"
-    const items = data.shopping_results || data.organic || [];
+    // ZenSerp returns organic results — extract price from description text
+    const items = data.organic || [];
     return this._normaliseZenSerpItems(items);
   }
 
   _normaliseZenSerpItems(items) {
-    return items
-      .map((item) => {
-        const storeName = item.source || item.merchant || '';
-        const site = this._inferSiteFromUrl(item.url || item.link || '');
+    const results = [];
+    for (const item of items) {
+      const url = item.url || item.link || '';
+      if (!url) continue;
 
-        const rawPrice =
-          item.price_parsed?.value ??
-          item.extracted_price ??
-          item.price;
+      // Extract price from description — looks like "Rs. 34990" or "₹34,990" or "₹ 1,49,990"
+      const desc = item.description || '';
+      const priceMatch = desc.match(/(?:Rs\.?|₹)\s*([\d,]+)/i);
+      if (!priceMatch) continue;
 
-        const price =
-          typeof rawPrice === 'number'
-            ? rawPrice
-            : parseFloat(String(rawPrice || '0').replace(/[^0-9.]/g, '')) || 0;
+      const price = parseFloat(priceMatch[1].replace(/,/g, '')) || 0;
+      if (price <= 0) continue;
 
-        return {
-          name:             item.title || '',
-          price,
-          currency:         'INR',
-          rating:           item.stars ?? item.rating,
-          reviewCount:      item.reviews ?? item.review_count,
-          url:              item.url || item.link || '',
-          image:            item.thumbnail || item.image,
-          deliveryEstimate: item.delivery,
-          inStock:          true,
-          site,
-          storeName,
-        };
-      })
-      .filter((r) => r.name && r.price > 0);
+      const site = this._inferSiteFromUrl(url);
+      const storeName = site;
+
+      results.push({
+        name:             item.title || '',
+        price,
+        currency:         'INR',
+        rating:           undefined,
+        reviewCount:      undefined,
+        url,
+        image:            item.thumbnail,
+        deliveryEstimate: undefined,
+        inStock:          true,
+        site,
+        storeName,
+      });
+    }
+    return results;
   }
 
   // ── SerpApi.com (64-char hex key) ─────────────────────────────────────────

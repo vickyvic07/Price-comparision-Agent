@@ -27,8 +27,6 @@ class AmazonAdapter extends BaseAdapter {
     return this._searchViaPlaywright(query);
   }
 
-  // ── SerpApi path ──────────────────────────────────────────────────────────
-
   _isUUID(key) {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key?.trim());
   }
@@ -37,26 +35,8 @@ class AmazonAdapter extends BaseAdapter {
     const key = process.env.SERPAPI_KEY;
 
     if (this._isUUID(key)) {
-      // ZenSerp (UUID key) — apikey sent as header
-      const { data } = await axios.get('https://app.zenserp.com/api/v2/search', {
-        headers: { apikey: key },
-        params: { q: `${query} amazon.in`, search_type: 'shopping', gl: 'in', hl: 'en', num: 10 },
-        timeout: parseInt(process.env.SCRAPER_TIMEOUT, 10) || 15000,
-      });
-      return (data.shopping_results || data.organic || [])
-        .filter((i) => (i.url || i.link || '').includes('amazon'))
-        .map((item) => ({
-          name:             item.title || '',
-          price:            item.price_parsed?.value ?? this._parsePrice(item.price),
-          currency:         'INR',
-          rating:           item.stars ?? item.rating,
-          reviewCount:      item.reviews,
-          url:              item.url || item.link || '',
-          image:            item.thumbnail,
-          deliveryEstimate: item.delivery,
-          inStock:          true,
-        }))
-        .filter((r) => r.name && r.price > 0);
+      // ZenSerp — no dedicated shopping endpoint with prices, skip and let serpapi adapter handle it
+      return [];
     }
 
     // SerpApi.com (64-char hex key)
