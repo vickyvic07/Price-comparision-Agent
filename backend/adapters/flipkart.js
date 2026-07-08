@@ -25,26 +25,15 @@ class FlipkartAdapter extends BaseAdapter {
     return this._searchViaPlaywright(query);
   }
 
-  _isUUID(key) {
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key?.trim());
-  }
-
   async _searchViaSerpApi(query) {
     const key = process.env.SERPAPI_KEY;
-
-    if (this._isUUID(key)) {
-      // ZenSerp organic results have no prices — skip, let serpapi adapter handle it
-      return [];
-    }
-
-    // SerpApi.com (64-char hex key)
     const { data } = await axios.get('https://serpapi.com/search', {
       params: { engine: 'google_shopping', q: `${query} site:flipkart.com`, gl: 'in', hl: 'en', api_key: key, num: 10 },
       timeout: parseInt(process.env.SCRAPER_TIMEOUT, 10) || 15000,
     });
     return (data.shopping_results || []).map((item) => ({
-      name:             item.title,
-      price:            parseFloat(String(item.price || '0').replace(/[^0-9.]/g, '')),
+      name:             item.title || '',
+      price:            typeof item.extracted_price === 'number' ? item.extracted_price : parseFloat(String(item.price || '0').replace(/[^0-9.]/g, '')) || 0,
       currency:         'INR',
       rating:           item.rating,
       reviewCount:      item.reviews,
@@ -52,7 +41,7 @@ class FlipkartAdapter extends BaseAdapter {
       image:            item.thumbnail,
       deliveryEstimate: item.delivery,
       inStock:          true,
-    }));
+    })).filter((r) => r.name && r.price > 0);
   }
 
   async _searchViaPlaywright(query) {

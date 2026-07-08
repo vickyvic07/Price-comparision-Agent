@@ -1,92 +1,26 @@
 /**
- * Shopping Search adapter — ZenSerp / SerpApi / ValueSerp
+ * Shopping Search adapter — SerpApi.com
  *
- * Auto-detects key format:
- *   UUID  (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx) → ZenSerp  (app.zenserp.com)
- *   UUID  → also tried as ValueSerp              (api.valueserp.com)
- *   64-char hex                                  → SerpApi  (serpapi.com)
+ * Uses Google Shopping engine via SerpApi.
+ * Returns structured results with thumbnail images, prices, ratings.
  */
 const axios = require('axios');
 const BaseAdapter = require('./baseAdapter');
 const logger = require('../utils/logger');
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 class SerpApiAdapter extends BaseAdapter {
   constructor() {
     super('serpapi', 600);
   }
 
-  _isUUID(key) {
-    return UUID_RE.test(key?.trim());
-  }
-
   async _search(query) {
     const key = process.env.SERPAPI_KEY;
     if (!key) throw new Error('SERPAPI_KEY not configured.');
-
-    if (this._isUUID(key)) {
-      return this._searchZenSerp(query, key);
-    }
     return this._searchSerpApi(query, key);
   }
 
-  // ── ZenSerp (UUID key, apikey header) ──────────────────────────────────────
-  async _searchZenSerp(query, key) {
-    logger.debug(`SerpApi adapter: using ZenSerp for "${query}"`);
-    const { data } = await axios.get('https://app.zenserp.com/api/v2/search', {
-      headers: { apikey: key },
-      params: {
-        q:    query,
-        gl:   'in',
-        hl:   'en',
-        num:  20,
-      },
-      timeout: parseInt(process.env.SCRAPER_TIMEOUT, 10) || 30000,
-    });
-
-    // ZenSerp returns organic results — extract price from description text
-    const items = data.organic || [];
-    return this._normaliseZenSerpItems(items);
-  }
-
-  _normaliseZenSerpItems(items) {
-    const results = [];
-    for (const item of items) {
-      const url = item.url || item.link || '';
-      if (!url) continue;
-
-      // Extract price from description — looks like "Rs. 34990" or "₹34,990" or "₹ 1,49,990"
-      const desc = item.description || '';
-      const priceMatch = desc.match(/(?:Rs\.?|₹)\s*([\d,]+)/i);
-      if (!priceMatch) continue;
-
-      const price = parseFloat(priceMatch[1].replace(/,/g, '')) || 0;
-      if (price <= 0) continue;
-
-      const site = this._inferSiteFromUrl(url);
-      const storeName = site;
-
-      results.push({
-        name:             item.title || '',
-        price,
-        currency:         'INR',
-        rating:           undefined,
-        reviewCount:      undefined,
-        url,
-        image:            item.thumbnail,
-        deliveryEstimate: undefined,
-        inStock:          true,
-        site,
-        storeName,
-      });
-    }
-    return results;
-  }
-
-  // ── SerpApi.com (64-char hex key) ─────────────────────────────────────────
   async _searchSerpApi(query, key) {
-    logger.debug(`SerpApi adapter: using SerpApi.com for "${query}"`);
+    logger.debug(`SerpApi adapter: searching for "${query}"`);
     const { data } = await axios.get('https://serpapi.com/search', {
       params: {
         engine:  'google_shopping',
@@ -100,41 +34,29 @@ class SerpApiAdapter extends BaseAdapter {
     });
 
     const items = data.shopping_results || [];
-    return items
-      .map((item) => {
-        const storeName = item.source || item.store || '';
-        const site = this._slugify(storeName) || this._inferSiteFromUrl(item.link || '');
-        const rawPrice = item.extracted_price ?? item.price_parsed ?? item.price;
-        const price =
-          typeof rawPrice === 'number'
-            ? rawPrice
-            : parseFloat(String(rawPrice || '0').replace(/[^0-9.]/g, '')) || 0;
+    return items.map((item) => {
+      const storeName = item.source || item.store || '';
+      const site      = this._inferSiteFromUrl(item.link || item.product_link || '');
 
-        return {
-          name:             item.title || '',
-          price,
-          currency:         'INR',
-          rating:           item.rating,
-          reviewCount:      item.reviews,
-          url:              item.link || item.product_link || '',
-          image:            item.thumbnail,
-          deliveryEstimate: item.delivery,
-          inStock:          true,
-          site,
-          storeName,
-        };
-      })
-      .filter((r) => r.name && r.price > 0);
-  }
+      const price =
+        typeof item.extracted_price === 'number'
+          ? item.extracted_price
+          : parseFloat(String(item.price || '0').replace(/[^0-9.]/g, '')) || 0;
 
-  _slugify(name) {
-    if (!name) return '';
-    return name
-      .toLowerCase()
-      .replace(/\.in$|\.com$|\.co\.in$/, '')
-      .trim()
-      .replace(/\s+/g, '_')
-      .replace(/[^a-z0-9_]/g, '');
+      return {
+        name:             item.title || '',
+        price,
+        currency:         'INR',
+        rating:           item.rating,
+        reviewCount:      item.reviews,
+        url:              item.link || item.product_link || '',
+        image:            item.thumbnail,
+        deliveryEstimate: item.delivery,
+        inStock:          true,
+        site,
+        storeName,
+      };
+    }).filter((r) => r.name && r.price > 0);
   }
 
   _inferSiteFromUrl(url) {
